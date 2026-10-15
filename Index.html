@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5ede0" />
+  <title>Atelier — Portfolio</title>
+  <meta name="description" content="Portfolio interactif — Atelier d'artiste en 3D" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Loader -->
+  <div class="loader">
+    <div class="loader__dot"></div>
+    <p class="loader__text">Chargement de l'atelier</p>
+  </div>
+
+  <!-- En-tête fixe -->
+  <header class="header">
+    <a href="#" class="header__logo">Atelier</a>
+    <nav class="header__nav">
+      <a href="#" data-action="overview">Vue d'ensemble</a>
+      <a href="#" data-action="about">À propos</a>
+    </nav>
+  </header>
+
+  <!-- Hint au démarrage -->
+  <div class="hint">
+    <p class="hint__text">
+      <span class="hint__icon">✱</span>
+      Survolez un cadre. Cliquez pour l'explorer.
+    </p>
+  </div>
+
+  <!-- Panneau d'info projet (caché par défaut) -->
+  <aside class="panel" id="panel">
+    <button class="panel__close" aria-label="Fermer">×</button>
+    <div class="panel__inner">
+      <p class="panel__eyebrow" id="panel-eyebrow">Projet</p>
+      <h2 class="panel__title" id="panel-title">Titre</h2>
+      <p class="panel__meta" id="panel-meta">Année · Type</p>
+      <p class="panel__desc" id="panel-desc">Description</p>
+      <a href="#" class="panel__link" id="panel-link">
+        Voir le projet <span>→</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Canvas 3D -->
+  <canvas id="webgl"></canvas>
+
+  <!-- Footer discret -->
+  <footer class="footer">
+    <span>© 2025 — Portfolio</span>
+  </footer>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
