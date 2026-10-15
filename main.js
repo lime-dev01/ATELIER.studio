@@ -3,6 +3,7 @@
 // ============================================
 
 import * as THREE from 'three';
+import { RGBELoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/RGBELoader.js';
 
 /* ============================================
    CONFIG
@@ -63,7 +64,7 @@ const ROOM = { width: 12, depth: 12, height: 4 };
 const canvas = document.querySelector('#webgl');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xf0e8d8);
-scene.fog = new THREE.Fog(0xf0e8d8, 12, 22);
+scene.fog = new THREE.Fog(0xf0e8d8, 14, 24);
 
 const sizes = { w: innerWidth, h: innerHeight };
 const camera = new THREE.PerspectiveCamera(42, sizes.w / sizes.h, 0.1, 50);
@@ -74,15 +75,14 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 0.95;
 
 /* ============================================
-   LUMIÈRES — atelier de jour chaleureux
+   LUMIÈRES — le HDRI fait 90% du boulot
    ============================================ */
-scene.add(new THREE.AmbientLight(0xfff5e6, 0.55));
+scene.add(new THREE.AmbientLight(0xfff5e6, 0.15));
 
-// Soleil qui entre par la fenêtre
-const sun = new THREE.DirectionalLight(0xffe4b8, 2.2);
+const sun = new THREE.DirectionalLight(0xffe4b8, 1.4);
 sun.position.set(8, 6, 4);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
@@ -97,15 +97,19 @@ scene.add(sun);
 scene.add(sun.target);
 sun.target.position.set(0, 0, -2);
 
-// Lumière chaude de remplissage
-const fill = new THREE.PointLight(0xffd9a0, 0.6, 15, 2);
-fill.position.set(0, 3, 0);
-scene.add(fill);
+/* ============================================
+   HDRI — éclairage et ambiance réalistes
+   ============================================ */
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+pmremGenerator.compileEquirectangularShader();
 
-// Lumière froide (rebond de ciel)
-const skyBounce = new THREE.DirectionalLight(0xd4e0f0, 0.35);
-skyBounce.position.set(-5, 4, -5);
-scene.add(skyBounce);
+new RGBELoader()
+  .load('assets/hdri/church_meeting_room_2k.hdr', (hdr) => {
+    const envMap = pmremGenerator.fromEquirectangular(hdr).texture;
+    scene.environment = envMap;
+    hdr.dispose();
+    pmremGenerator.dispose();
+  });
 
 /* ============================================
    MATÉRIAUX
@@ -153,7 +157,6 @@ function createGradientTexture(c1, c2) {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size * 1.25);
 
-  // Grain subtil
   const img = ctx.getImageData(0, 0, size, size * 1.25);
   for (let i = 0; i < img.data.length; i += 4) {
     const n = (Math.random() - 0.5) * 22;
@@ -174,7 +177,6 @@ function createGradientTexture(c1, c2) {
 function buildRoom() {
   const group = new THREE.Group();
 
-  // Sol
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(ROOM.width, ROOM.depth),
     matParquet
@@ -183,7 +185,6 @@ function buildRoom() {
   floor.receiveShadow = true;
   group.add(floor);
 
-  // Plafond
   const ceiling = new THREE.Mesh(
     new THREE.PlaneGeometry(ROOM.width, ROOM.depth),
     matPlafond
@@ -192,7 +193,6 @@ function buildRoom() {
   ceiling.position.y = ROOM.height;
   group.add(ceiling);
 
-  // Mur du fond
   const backWall = new THREE.Mesh(
     new THREE.PlaneGeometry(ROOM.width, ROOM.height),
     matMur
@@ -201,7 +201,6 @@ function buildRoom() {
   backWall.receiveShadow = true;
   group.add(backWall);
 
-  // Mur gauche
   const leftWall = new THREE.Mesh(
     new THREE.PlaneGeometry(ROOM.depth, ROOM.height),
     matMur
@@ -211,7 +210,6 @@ function buildRoom() {
   leftWall.receiveShadow = true;
   group.add(leftWall);
 
-  // Mur droit
   const rightWall = new THREE.Mesh(
     new THREE.PlaneGeometry(ROOM.depth, ROOM.height),
     matMur
@@ -221,7 +219,6 @@ function buildRoom() {
   rightWall.receiveShadow = true;
   group.add(rightWall);
 
-  // Mur avant (derrière la caméra, pour éviter la sensation de vide)
   const frontWall = new THREE.Mesh(
     new THREE.PlaneGeometry(ROOM.width, ROOM.height),
     matMur
@@ -234,12 +231,11 @@ function buildRoom() {
 }
 
 /* ============================================
-   FENÊTRE — sur le mur droit
+   FENÊTRE
    ============================================ */
 function buildWindow() {
   const group = new THREE.Group();
 
-  // "Ciel" lumineux derrière la fenêtre
   const sky = new THREE.Mesh(
     new THREE.PlaneGeometry(2.2, 2.8),
     new THREE.MeshBasicMaterial({ color: 0xfff3d8 })
@@ -248,13 +244,11 @@ function buildWindow() {
   sky.rotation.y = -Math.PI / 2;
   group.add(sky);
 
-  // Croisillons (montants de la fenêtre)
   const matCadre = new THREE.MeshStandardMaterial({
     color: 0x3d2b1f,
     roughness: 0.7,
   });
 
-  // Montant vertical
   const vBar = new THREE.Mesh(
     new THREE.BoxGeometry(0.05, 2.8, 0.06),
     matCadre
@@ -263,23 +257,12 @@ function buildWindow() {
   vBar.rotation.y = -Math.PI / 2;
   group.add(vBar);
 
-  // Montant horizontal
   const hBar = new THREE.Mesh(
     new THREE.BoxGeometry(0.05, 0.06, 2.2),
     matCadre
   );
   hBar.position.set(ROOM.width / 2 - 0.05, 2.4, -2);
   group.add(hBar);
-
-  // Cadre extérieur
-  const cadreGeo = new THREE.BoxGeometry(0.08, 2.9, 2.3);
-  const cadre = new THREE.Mesh(cadreGeo, matCadre);
-  cadre.position.set(ROOM.width / 2 - 0.04, 2.4, -2);
-  // On perce une fenêtre en superposant 4 barres
-  group.add(cadre);
-
-  // Perce la fenêtre : on remplace le cadre par 4 barres plus fines
-  group.remove(cadre);
 
   const barTop = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.3), matCadre);
   barTop.position.set(ROOM.width / 2 - 0.04, 3.85, -2);
@@ -301,12 +284,11 @@ function buildWindow() {
 }
 
 /* ============================================
-   ÉTABLI CENTRAL
+   ÉTABLI
    ============================================ */
 function buildTable() {
   const group = new THREE.Group();
 
-  // Plateau
   const top = new THREE.Mesh(
     new THREE.BoxGeometry(3.4, 0.12, 1.8),
     matBoisFonce
@@ -316,7 +298,6 @@ function buildTable() {
   top.receiveShadow = true;
   group.add(top);
 
-  // Pieds
   const piedPositions = [
     [-1.5, 0.45, -0.7], [1.5, 0.45, -0.7],
     [-1.5, 0.45, 0.7], [1.5, 0.45, 0.7]
@@ -331,7 +312,6 @@ function buildTable() {
     group.add(pied);
   });
 
-  // Traverse
   const traverse = new THREE.Mesh(
     new THREE.BoxGeometry(3.2, 0.08, 0.08),
     matBoisFonce
@@ -349,7 +329,6 @@ function buildTable() {
 function buildTableObjects() {
   const group = new THREE.Group();
 
-  // Pots de peinture (cylindres de couleurs)
   const couleursPots = [0xc96b3a, 0x3a5a8c, 0x4a6a3a, 0xc9a227];
   couleursPots.forEach((c, i) => {
     const pot = new THREE.Mesh(
@@ -361,7 +340,6 @@ function buildTableObjects() {
     group.add(pot);
   });
 
-  // Bocal à pinceaux
   const bocal = new THREE.Mesh(
     new THREE.CylinderGeometry(0.16, 0.16, 0.32, 24, 1, true),
     new THREE.MeshPhysicalMaterial({
@@ -376,7 +354,6 @@ function buildTableObjects() {
   bocal.position.set(1.1, 1.12, 0.4);
   group.add(bocal);
 
-  // Pinceaux
   for (let i = 0; i < 5; i++) {
     const angle = (i / 5) * Math.PI * 2;
     const pinceau = new THREE.Mesh(
@@ -392,7 +369,6 @@ function buildTableObjects() {
     pinceau.rotation.x = Math.sin(angle) * 0.15;
     group.add(pinceau);
 
-    // Poils
     const poils = new THREE.Mesh(
       new THREE.CylinderGeometry(0.018, 0.01, 0.08, 8),
       new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.9 })
@@ -407,7 +383,6 @@ function buildTableObjects() {
     group.add(poils);
   }
 
-  // Palette en bois
   const palette = new THREE.Mesh(
     new THREE.CylinderGeometry(0.35, 0.35, 0.02, 32),
     matBoisClair
@@ -416,7 +391,6 @@ function buildTableObjects() {
   palette.rotation.y = 0.3;
   group.add(palette);
 
-  // Taches de peinture sur la palette
   const couleursPalette = [0xc96b3a, 0x3a5a8c, 0x4a6a3a, 0xc9a227, 0xd4a5c9];
   couleursPalette.forEach((c, i) => {
     const tache = new THREE.Mesh(
@@ -432,7 +406,6 @@ function buildTableObjects() {
     group.add(tache);
   });
 
-  // Rouleau de toile vertical
   const rouleau = new THREE.Mesh(
     new THREE.CylinderGeometry(0.08, 0.08, 0.9, 20),
     new THREE.MeshStandardMaterial({ color: 0xede4d0, roughness: 1.0 })
@@ -447,12 +420,11 @@ function buildTableObjects() {
 }
 
 /* ============================================
-   CHEVALET (dans un coin)
+   CHEVALET
    ============================================ */
 function buildEasel() {
   const group = new THREE.Group();
 
-  // 3 pieds
   const positions = [
     { x: -0.35, z: 0.3, rot: -0.15 },
     { x: 0.35, z: 0.3, rot: 0.15 },
@@ -470,7 +442,6 @@ function buildEasel() {
     group.add(pied);
   });
 
-  // Barre horizontale
   const barre = new THREE.Mesh(
     new THREE.BoxGeometry(0.9, 0.06, 0.06),
     matBoisClair
@@ -478,7 +449,6 @@ function buildEasel() {
   barre.position.set(0, 1.5, 0.15);
   group.add(barre);
 
-  // Toile blanche sur le chevalet
   const toile = new THREE.Mesh(
     new THREE.PlaneGeometry(0.75, 0.95),
     new THREE.MeshStandardMaterial({ color: 0xfaf5e8, roughness: 1.0, side: THREE.DoubleSide })
@@ -487,7 +457,6 @@ function buildEasel() {
   toile.rotation.x = -0.08;
   group.add(toile);
 
-  // Petite ébauche en cours
   const ebauche = new THREE.Mesh(
     new THREE.PlaneGeometry(0.5, 0.5),
     new THREE.MeshStandardMaterial({ color: 0xa8c98b, roughness: 0.9, side: THREE.DoubleSide })
@@ -513,12 +482,10 @@ PROJETS.forEach((p, i) => {
   group.position.set(p.position.x, p.position.y, p.position.z);
   group.rotation.y = p.position.rotationY;
 
-  // Cadre
   const cadreMat = matBoisFonce;
   const cadreW = 1.4;
   const cadreH = 1.75;
 
-  // Barres du cadre
   const barres = [
     { w: cadreW, h: 0.08, d: 0.08, x: 0, y: cadreH / 2, z: 0 },
     { w: cadreW, h: 0.08, d: 0.08, x: 0, y: -cadreH / 2, z: 0 },
@@ -535,7 +502,6 @@ PROJETS.forEach((p, i) => {
     group.add(bar);
   });
 
-  // Toile (avec texture dégradé)
   const tex = createGradientTexture(p.couleur1, p.couleur2);
   const toile = new THREE.Mesh(
     new THREE.PlaneGeometry(cadreW - 0.16, cadreH - 0.16),
@@ -544,7 +510,6 @@ PROJETS.forEach((p, i) => {
   toile.position.z = 0.045;
   group.add(toile);
 
-  // Fond du cadre (légèrement en retrait)
   const fond = new THREE.Mesh(
     new THREE.PlaneGeometry(cadreW, cadreH),
     new THREE.MeshStandardMaterial({ color: 0x1a1208 })
@@ -552,7 +517,6 @@ PROJETS.forEach((p, i) => {
   fond.position.z = 0.02;
   group.add(fond);
 
-  // Halo doré (invisible par défaut)
   const halo = new THREE.Mesh(
     new THREE.PlaneGeometry(cadreW + 0.4, cadreH + 0.4),
     new THREE.MeshBasicMaterial({
@@ -602,9 +566,7 @@ const mouseSmoothed = { x: 0, y: 0 };
 addEventListener('pointermove', (e) => {
   mouse.x = (e.clientX / sizes.w) * 2 - 1;
   mouse.y = -((e.clientY / sizes.h) * 2 - 1);
-});
-
-/* ============================================
+});/* ============================================
    INTERACTIONS — raycasting
    ============================================ */
 const raycaster = new THREE.Raycaster();
@@ -675,17 +637,14 @@ function focusProjet(projetGroup) {
 
   const p = projetGroup.userData.projet;
 
-  // Position cible de la caméra : devant le projet
   const targetPos = new THREE.Vector3(
     p.position.x + Math.sin(p.position.rotationY + Math.PI) * 1.8,
     p.position.y,
     p.position.z + Math.cos(p.position.rotationY + Math.PI) * 1.8
   );
 
-  // Position du projet (regard)
   const lookPos = new THREE.Vector3(p.position.x, p.position.y, p.position.z);
 
-  // Animation GSAP
   gsap.to(camera.position, {
     x: targetPos.x, y: targetPos.y, z: targetPos.z,
     duration: 1.2,
@@ -698,17 +657,14 @@ function focusProjet(projetGroup) {
     }
   });
 
-  // Remplir le panneau
   panelEyebrow.textContent = `Projet ${String(projetGroup.userData.index + 1).padStart(2, '0')}`;
   panelTitle.textContent = p.title;
   panelMeta.textContent = p.meta;
   panelDesc.textContent = p.desc;
 
-  // Ouvrir le panneau
   panel.classList.add('open');
   hint.classList.add('hidden');
 
-  // Cacher les autres halos
   projetsMeshes.forEach(pm => {
     if (pm !== projetGroup) pm.userData.halo.material.opacity = 0;
   });
@@ -754,7 +710,7 @@ addEventListener('resize', () => {
 });
 
 /* ============================================
-   LOADER — masqué après le premier rendu
+   LOADER
    ============================================ */
 const loaderEl = document.querySelector('.loader');
 setTimeout(() => loaderEl.classList.add('hidden'), 800);
@@ -767,7 +723,6 @@ const clock = new THREE.Clock();
 function tick() {
   const t = clock.getElapsedTime();
 
-  // Parallaxe souris (uniquement si pas en mode focus)
   if (!selected) {
     mouseSmoothed.x += (mouse.x - mouseSmoothed.x) * 0.05;
     mouseSmoothed.y += (mouse.y - mouseSmoothed.y) * 0.05;
@@ -781,7 +736,6 @@ function tick() {
     camera.lookAt(cameraTarget);
   }
 
-  // Pulsation douce des halos (survol)
   if (hovered && !selected) {
     const pulse = 0.15 + Math.sin(t * 3) * 0.05;
     hovered.userData.halo.material.opacity = pulse;
